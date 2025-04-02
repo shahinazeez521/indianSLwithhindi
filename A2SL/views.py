@@ -113,47 +113,53 @@ HINDI_ANIMATION_MAP = {
     "औ": "a u",
     "अं": "a n",
     "अः": "a h",
-   "क": "k a",
-    "ख": "k h a",
-    "ग": "g a",
-    "घ": "g h a",
-    "ङ": "n g a",
-    "च": "c h a",
-    "छ": "c h h a",
-    "ज": "j a",
-    "झ": "j h a",
-    "ञ": "n y a",
-    "ट": "t a",
-    "ठ": "t h a",
-    "ड": "d a",
-    "ढ": "d h a",
-    "ण": "n a",
-
-    "त": "ta",
-    "थ": "t h a",
-    "द": "d a",
-    "ध": "d h a",
-    "न": "n a",
-    "प": "p a",
-    "फ": "fa",
-    "ब": "b a",
-    "भ": "b h a",
-    "म": "m a",
-    "य": "y a",
-    "र": "r a",
-    "ल": "l a",
-    "व": "v a",   
-    "श":"s h a",
-    "ष": "s h a",
-    "स": "s a",
-    "ह": "h a",
+   "क": "k ",
+    "ख": "k h ",
+    "ग": "g ",
+    "घ": "g h ",
+    "ङ": "n g ",
+    "च": "c h ",
+    "छ": "c h h",
+    "ज": "j ",
+    "झ": "j h ",
+    "ञ": "n y ",
+    "ट": "t ",
+    "ठ": "t  ",
+    "ड": "d ",
+    "ढ": "d h ",
+    "ण": "n ",
+    "त": "th",
+    "थ": "d h ",
+    "द": "d h",
+    "ध": "d h ",
+    "न": "n ",
+    "प": "p ",
+    "फ": "f",
+    "ब": "b ",
+    "भ": "b h ",
+    "म": "m ",
+    "य": "y",
+    "र": "r",
+    "ल": "l",
+    "व": "v",   
+    "श":"sh",
+    "ष": "sh",
+    "स": "s",
+    "ह": "h",
     "शब्द": "words",
     "दुनिया": "world",
-    "एक्स-रे": "X-ray",
     "वाई": "Y",
     "तुम": "you",
     "आपका": "your",
-    "खुद": "yourself"
+    "खुद": "yourself",
+    "शि": "shi",  
+    "री": "ree",
+    "रू": "r o o",
+    "ा": "a",
+     "ि": "i", 
+    "ी": "ee",   
+    "ु": "u",     
+    "ू": "oo"
 }
 
 def home_view(request):
@@ -174,7 +180,7 @@ def animation_view(request):
             words = word_tokenize(text)
             tagged = nltk.pos_tag(words)
 
-        # Tense detection (English only, Hindi will skip this for simplicity)
+        # Tense detection (English only, Hindi skips this for simplicity)
         tense = {}
         if language == "en":
             tense["future"] = len([word for word in tagged if word[1] == "MD"])
@@ -228,18 +234,44 @@ def animation_view(request):
                 temp = temp + words
                 words = temp
 
-        # Map Hindi words to animation filenames
+        # Process Hindi words
+        final_words = []
         if language == "hi":
-            words = [HINDI_ANIMATION_MAP.get(w, w) for w in words]
+            for word in words:
+                # Check if the word is in the mapping
+                if word in HINDI_ANIMATION_MAP:
+                    mapped_word = HINDI_ANIMATION_MAP[word]
+                    path = mapped_word + ".mp4"
+                    if finders.find(path):  # Check if animation exists
+                        final_words.append(mapped_word)
+                    else:
+                        # If no animation for the mapped word, break into characters
+                        final_words.extend(list(mapped_word.lower()))
+                else:
+                    # Undefined Hindi word (e.g., "खान")
+                    # Break into individual Hindi characters and map to English alphabet
+                    for char in word:
+                        if char in HINDI_ANIMATION_MAP:
+                            mapped_char = HINDI_ANIMATION_MAP[char]
+                            # Split multi-part mappings (e.g., "k h a") into separate letters
+                            if " " in mapped_char:
+                                final_words.extend(mapped_char.split())
+                            else:
+                                final_words.append(mapped_char.lower())
+                        else:
+                            # Fallback for unmapped characters (e.g., "़")
+                            final_words.append(char)  # Or "missing" if you have "missing.mp4"
+        else:
+            final_words = words
 
         # Check for animation files and split if not found
         filtered_text = []
-        for w in words:
+        for w in final_words:
             path = w + ".mp4"
             f = finders.find(path)
             if not f:
-                for c in w:
-                    filtered_text.append(c)
+                # If no video exists, assume it's a word to be spelled out
+                filtered_text.extend([c.lower() for c in w if c.isalpha()])
             else:
                 filtered_text.append(w)
         words = filtered_text
